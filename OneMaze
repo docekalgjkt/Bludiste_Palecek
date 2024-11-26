@@ -1,72 +1,116 @@
 import csv
-import xml.etree.ElementTree as ET
-from collections import deque
+import tkinter as tk
 
-class Bludiste:
-    def __init__(self, mapa_csv, metadata_xml):
-        self.mapa = self.nacti_mapu(mapa_csv)
-        self.start, self.end = self.nacti_metadata(metadata_xml)
 
-    def nacti_mapu(self, soubor):
-        """Načte mapu bludiště z CSV souboru."""
-        mapa = []
-        with open(soubor, mode='r') as file:
+class Maze:
+    """Třída reprezentující bludiště načtené ze souboru."""
+
+    def __init__(self, maze_file):
+        self.maze = self.load_maze(maze_file)
+
+    def load_maze(self, maze_file):
+        """Načte bludiště z CSV souboru."""
+        maze = []
+        with open(maze_file, mode='r') as file:
             reader = csv.reader(file)
             for row in reader:
-                mapa.append(list(map(int, row)))
-        return mapa
+                maze.append(list(map(int, row)))
+        return maze
 
-    def nacti_metadata(self, soubor):
-        """Načte metadata (start a cíl) z XML souboru."""
-        tree = ET.parse(soubor)
-        root = tree.getroot()
-        start = tuple(map(int, root.find('start').text.split(',')))
-        end = tuple(map(int, root.find('end').text.split(',')))
-        return start, end
+    def is_free(self, row, col):
+        """Vrací True, pokud je daná pozice volná (0), jinak False."""
+        if 0 <= row < len(self.maze) and 0 <= col < len(self.maze[0]):
+            return self.maze[row][col] == 0
+        return False
 
-    def vykresli_bludiste(self):
-        """Vykreslí bludiště do konzole."""
-        for radek in self.mapa:
-            print(''.join(['#' if cell == 1 else '.' for cell in radek]))
 
-    def hledat_cestu(self):
-        """Najde cestu z start do end pomocí BFS."""
-        rows, cols = len(self.mapa), len(self.mapa[0])
-        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
-        queue = deque([(*self.start, [self.start])])  # Fronta obsahuje (x, y, cesta)
-        visited = set()
+class Robot:
+    """Třída reprezentující robota pohybujícího se v bludišti."""
 
-        while queue:
-            x, y, path = queue.popleft()
-            if (x, y) == self.end:
-                return path  # Cesta nalezena
+    def __init__(self, maze, start):
+        self.maze = maze  # Reference na objekt Bludiště
+        self.position = start  # Aktuální pozice robota
+        self.path = []  # Uložená cesta, pokud hledáme cíl
 
-            if (x, y) in visited:
-                continue
-            visited.add((x, y))
+    def move(self, direction):
+        """Pohybuje robota v daném směru, pokud je to možné."""
+        directions = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+        if direction in directions:
+            new_row = self.position[0] + directions[direction][0]
+            new_col = self.position[1] + directions[direction][1]
+            if self.maze.is_free(new_row, new_col):
+                self.position = (new_row, new_col)
+                return True
+        return False
 
-            for dx, dy in directions:
-                nx, ny = x + dx, y + dy
-                if 0 <= nx < rows and 0 <= ny < cols and self.mapa[nx][ny] == 0:
-                    queue.append((nx, ny, path + [(nx, ny)]))
 
-        return None  # Cesta nenalezena
+class RobotView:
+    """Třída pro vizualizaci robota."""
 
-# Hlavní část programu
+    def __init__(self, canvas, robot, cell_size):
+        self.canvas = canvas  # Tkinter canvas
+        self.robot = robot  # Reference na objekt robota
+        self.cell_size = cell_size  # Velikost jedné buňky
+        self.robot_sprite = None  # Identifikátor sprite robota
+
+    def draw(self):
+        """Vykreslí robota na aktuální pozici."""
+        if self.robot_sprite:
+            self.canvas.delete(self.robot_sprite)
+        x1 = self.robot.position[1] * self.cell_size
+        y1 = self.robot.position[0] * self.cell_size
+        x2 = x1 + self.cell_size
+        y2 = y1 + self.cell_size
+        self.robot_sprite = self.canvas.create_oval(x1, y1, x2, y2, fill="blue", outline="darkblue")
+
+
+# Hlavní program
 if __name__ == "__main__":
-    # Cesty k souborům
-    mapa_csv = "mapa.csv"
-    metadata_xml = "metadata.xml"
+    maze_file = "mapa.csv"
+    start_position = (1, 1)  # Počáteční pozice robota
 
-    # Vytvoření instance bludiště
-    bludiste = Bludiste(mapa_csv, metadata_xml)
+    # Tkinter GUI
+    root = tk.Tk()
+    root.title("Robot in Maze")
+    cell_size = 30
 
-    print("Bludiště:")
-    bludiste.vykresli_bludiste()
+    # Načtení bludiště
+    maze = Maze(maze_file)
 
-    print("\nHledání cesty...")
-    cesta = bludiste.hledat_cestu()
-    if cesta:
-        print("Cesta nalezena:", cesta)
-    else:
-        print("Cesta nebyla nalezena.")
+    # Inicializace Canvas
+    canvas = tk.Canvas(root, width=len(maze.maze[0]) * cell_size, height=len(maze.maze) * cell_size)
+    canvas.pack()
+
+    # Vykreslení bludiště
+    for i, row in enumerate(maze.maze):
+        for j, cell in enumerate(row):
+            x1 = j * cell_size
+            y1 = i * cell_size
+            x2 = x1 + cell_size
+            y2 = y1 + cell_size
+            color = "black" if cell == 1 else "white"
+            canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="gray")
+
+    # Vytvoření robota a jeho vizualizace
+    robot = Robot(maze, start_position)
+    robot_view = RobotView(canvas, robot, cell_size)
+    robot_view.draw()
+
+
+    # Klávesové ovládání pro pohyb robota
+    def move_robot(event):
+        key_to_direction = {
+            "w": "up",
+            "s": "down",
+            "a": "left",
+            "d": "right"
+        }
+        if event.char in key_to_direction:
+            direction = key_to_direction[event.char]
+            if robot.move(direction):
+                robot_view.draw()
+
+
+    root.bind("<Key>", move_robot)
+
+    root.mainloop()
