@@ -1,0 +1,72 @@
+import csv
+import xml.etree.ElementTree as ET
+from collections import deque
+
+class Bludiste:
+    def __init__(self, mapa_csv, metadata_xml):
+        self.mapa = self.nacti_mapu(mapa_csv)
+        self.start, self.end = self.nacti_metadata(metadata_xml)
+
+    def nacti_mapu(self, soubor):
+        """Načte mapu bludiště z CSV souboru."""
+        mapa = []
+        with open(soubor, mode='r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                mapa.append(list(map(int, row)))
+        return mapa
+
+    def nacti_metadata(self, soubor):
+        """Načte metadata (start a cíl) z XML souboru."""
+        tree = ET.parse(soubor)
+        root = tree.getroot()
+        start = tuple(map(int, root.find('start').text.split(',')))
+        end = tuple(map(int, root.find('end').text.split(',')))
+        return start, end
+
+    def vykresli_bludiste(self):
+        """Vykreslí bludiště do konzole."""
+        for radek in self.mapa:
+            print(''.join(['#' if cell == 1 else '.' for cell in radek]))
+
+    def hledat_cestu(self):
+        """Najde cestu z start do end pomocí BFS."""
+        rows, cols = len(self.mapa), len(self.mapa[0])
+        directions = [(-1, 0), (1, 0), (0, -1), (0, 1)]
+        queue = deque([(*self.start, [self.start])])  # Fronta obsahuje (x, y, cesta)
+        visited = set()
+
+        while queue:
+            x, y, path = queue.popleft()
+            if (x, y) == self.end:
+                return path  # Cesta nalezena
+
+            if (x, y) in visited:
+                continue
+            visited.add((x, y))
+
+            for dx, dy in directions:
+                nx, ny = x + dx, y + dy
+                if 0 <= nx < rows and 0 <= ny < cols and self.mapa[nx][ny] == 0:
+                    queue.append((nx, ny, path + [(nx, ny)]))
+
+        return None  # Cesta nenalezena
+
+# Hlavní část programu
+if __name__ == "__main__":
+    # Cesty k souborům
+    mapa_csv = "mapa.csv"
+    metadata_xml = "metadata.xml"
+
+    # Vytvoření instance bludiště
+    bludiste = Bludiste(mapa_csv, metadata_xml)
+
+    print("Bludiště:")
+    bludiste.vykresli_bludiste()
+
+    print("\nHledání cesty...")
+    cesta = bludiste.hledat_cestu()
+    if cesta:
+        print("Cesta nalezena:", cesta)
+    else:
+        print("Cesta nebyla nalezena.")
