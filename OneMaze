@@ -1,0 +1,116 @@
+import csv
+import tkinter as tk
+
+
+class Maze:
+    """Třída reprezentující bludiště načtené ze souboru."""
+
+    def __init__(self, maze_file):
+        self.maze = self.load_maze(maze_file)
+
+    def load_maze(self, maze_file):
+        """Načte bludiště z CSV souboru."""
+        maze = []
+        with open(maze_file, mode='r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                maze.append(list(map(int, row)))
+        return maze
+
+    def is_free(self, row, col):
+        """Vrací True, pokud je daná pozice volná (0), jinak False."""
+        if 0 <= row < len(self.maze) and 0 <= col < len(self.maze[0]):
+            return self.maze[row][col] == 0
+        return False
+
+
+class Robot:
+    """Třída reprezentující robota pohybujícího se v bludišti."""
+
+    def __init__(self, maze, start):
+        self.maze = maze  # Reference na objekt Bludiště
+        self.position = start  # Aktuální pozice robota
+        self.path = []  # Uložená cesta, pokud hledáme cíl
+
+    def move(self, direction):
+        """Pohybuje robota v daném směru, pokud je to možné."""
+        directions = {"up": (-1, 0), "down": (1, 0), "left": (0, -1), "right": (0, 1)}
+        if direction in directions:
+            new_row = self.position[0] + directions[direction][0]
+            new_col = self.position[1] + directions[direction][1]
+            if self.maze.is_free(new_row, new_col):
+                self.position = (new_row, new_col)
+                return True
+        return False
+
+
+class RobotView:
+    """Třída pro vizualizaci robota."""
+
+    def __init__(self, canvas, robot, cell_size):
+        self.canvas = canvas  # Tkinter canvas
+        self.robot = robot  # Reference na objekt robota
+        self.cell_size = cell_size  # Velikost jedné buňky
+        self.robot_sprite = None  # Identifikátor sprite robota
+
+    def draw(self):
+        """Vykreslí robota na aktuální pozici."""
+        if self.robot_sprite:
+            self.canvas.delete(self.robot_sprite)
+        x1 = self.robot.position[1] * self.cell_size
+        y1 = self.robot.position[0] * self.cell_size
+        x2 = x1 + self.cell_size
+        y2 = y1 + self.cell_size
+        self.robot_sprite = self.canvas.create_oval(x1, y1, x2, y2, fill="blue", outline="darkblue")
+
+
+# Hlavní program
+if __name__ == "__main__":
+    maze_file = "mapa.csv"
+    start_position = (1, 1)  # Počáteční pozice robota
+
+    # Tkinter GUI
+    root = tk.Tk()
+    root.title("Robot in Maze")
+    cell_size = 30
+
+    # Načtení bludiště
+    maze = Maze(maze_file)
+
+    # Inicializace Canvas
+    canvas = tk.Canvas(root, width=len(maze.maze[0]) * cell_size, height=len(maze.maze) * cell_size)
+    canvas.pack()
+
+    # Vykreslení bludiště
+    for i, row in enumerate(maze.maze):
+        for j, cell in enumerate(row):
+            x1 = j * cell_size
+            y1 = i * cell_size
+            x2 = x1 + cell_size
+            y2 = y1 + cell_size
+            color = "black" if cell == 1 else "white"
+            canvas.create_rectangle(x1, y1, x2, y2, fill=color, outline="gray")
+
+    # Vytvoření robota a jeho vizualizace
+    robot = Robot(maze, start_position)
+    robot_view = RobotView(canvas, robot, cell_size)
+    robot_view.draw()
+
+
+    # Klávesové ovládání pro pohyb robota
+    def move_robot(event):
+        key_to_direction = {
+            "w": "up",
+            "s": "down",
+            "a": "left",
+            "d": "right"
+        }
+        if event.char in key_to_direction:
+            direction = key_to_direction[event.char]
+            if robot.move(direction):
+                robot_view.draw()
+
+
+    root.bind("<Key>", move_robot)
+
+    root.mainloop()
