@@ -1,0 +1,34 @@
+import csv
+import xml.etree.ElementTree as ET
+
+class CSVReader:
+    """Reader for CSV maze files."""
+    @staticmethod
+    def read(file_path):
+        maze = []
+        with open(file_path, mode='r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                maze.append(list(map(int, row)))
+        return maze
+
+class XMLReader:
+    """Reader for XML maze files."""
+    @staticmethod
+    def read(file_path):
+        tree = ET.parse(file_path)
+        root = tree.getroot()
+        maze = []
+        for row in root.findall('row'):
+            maze.append(list(map(int, row.text.strip().split(','))))
+        return maze
+
+class TXTReader:
+    """Reader for TXT maze files."""
+    @staticmethod
+    def read(file_path):
+        maze = []
+        with open(file_path, mode='r') as file:
+            for line in file:
+                maze.append(list(map(int, line.strip().split())))
+        return maze
